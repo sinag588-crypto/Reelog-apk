@@ -115,7 +115,7 @@ input::placeholder{color:var(--mute)}
 .pi{display:flex;align-items:center;gap:10px;width:100%;text-align:right;background:var(--gl2);border:1px solid var(--gb);border-radius:18px;padding:8px 12px;margin-bottom:8px}
 .pi .pn svg{width:16px;height:16px}.pi .pn{width:34px;height:34px;border-radius:50%;background:var(--ac);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 34px}
 .pi .pmt{flex:1;min-width:0}.pi b{display:block;font-weight:600;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#askImg{width:100%;max-height:170px;object-fit:cover;border-radius:14px;margin:0 0 10px}#askImg:not([hidden]){display:block}.pth{width:76px;height:46px;object-fit:cover;border-radius:10px;flex:0 0 76px;background:#150f24}.pi small{color:var(--mute);font-size:.78rem}.pi i{font-style:normal;color:#3bb273;font-weight:800}
+#askImg{width:100%;max-height:170px;object-fit:cover;border-radius:14px;margin:0 0 10px}#askImg:not([hidden]){display:block}.pth{width:76px;height:46px;object-fit:cover;border-radius:10px;flex:0 0 76px;background:#150f24}.pth.pp{width:54px;height:80px;flex:0 0 54px;border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.45)}.pi small{color:var(--mute);font-size:.78rem}.pi i{font-style:normal;color:#3bb273;font-weight:800}
 .pl{position:fixed;inset:0;z-index:20;background:#000;color:#fff;direction:ltr;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .pl video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 .pl .dim{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none}
@@ -398,6 +398,7 @@ h1{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spaci
     <div class="row"><button class="ghost" id="sloff">خاموش کردن حالت خواب</button><button class="ghost" id="slx">بستن</button></div>
   </div></div>
   <div class="gn" id="gn" hidden><div class="mo">🌙</div><b>شب‌بخیر</b><small id="gns"></small><div class="row"><button class="ghost" id="gnb">ادامه تماشا</button><button class="ghost" id="gnc">بستن پخش‌کننده</button></div></div>
+  <div class="gn" id="pe" hidden><div class="mo">⚠️</div><b>این ویدیو داخل برنامه پخش نمی‌شود</b><small id="pes"></small><div class="row"><button class="ghost" id="peo">باز کردن با پخش‌کننده‌ی دیگر</button><button class="ghost" id="pec">بستن</button></div></div>
   <div class="mdl" id="ask" hidden><div class="glass box">
     <h3>این چه فیلمی بود؟</h3><div class="sub" id="askMsg"></div><img id="askImg" alt="" hidden><div class="hint ltr" id="askFile"></div>
     <input id="askIn" placeholder="نام فیلم یا سریال…" autocomplete="off"><div class="res" id="askRes"></div>
@@ -643,10 +644,11 @@ const IC={play:sv('<path d="M8 5.5v13l11-6.5z" fill="currentColor"/>'),pause:sv(
 [['px','close'],['pb10','back10'],['ppp','play'],['pf10','fwd10'],['pprev','prev'],['pnext','next'],['pfit','aspect'],['pfs','fs'],['plk','lock'],['ulk','unlock']].forEach(([i,k])=>$(i).innerHTML=IC[k]);
 $('pname').innerHTML=IC.film+'<span>نام فیلم</span>';
 
+function posterOf(it){ if(it.hit){ const m=movies.find(x=>(x.id||1)===it.hit); if(m&&m.poster) return m.poster; } return it.cat&&it.cat.poster||''; }
 function renderPl(){
   const q=norm($('pfilter').value||''); let n=0, h='';
   for(let i=0;i<pls.length&&n<300;i++){ const it=pls[i], p=it.p; if(q&&!norm(p.file).includes(q)) continue; n++;
-    h+='<button class="pi'+(it.hit?' hit':'')+'" data-i="'+i+'"><span class="pn">'+IC.play+'</span>'+(it.thumb?'<img class="pth" loading="lazy" src="'+it.thumb+'" alt="">':'')+'<span class="pmt"><b class="ltr">'+esc(p.file)+'</b><small>'+(p.unclear?'نام نامشخص؛ موقع پخش می‌پرسم':esc(typeName(p.type)+' · '+p.title+(p.year?' ('+p.year+')':'')+(p.ep?' · '+p.ep:'')))+(it.dur?' · '+fmt(it.dur/1000):'')+'</small></span>'+(it.ok?'<i>✓</i>':it.hit?'<em class="hb">در لیست تو</em>':it.cat?'<em class="hb">'+esc(typeName(it.cat.type))+'</em>':'')+'</button>'; }
+    h+='<button class="pi'+(it.hit?' hit':'')+'" data-i="'+i+'"><span class="pn">'+IC.play+'</span>'+(posterOf(it)?'<img class="pth pp" loading="lazy" src="'+esc(posterOf(it))+'" alt="">':it.thumb?'<img class="pth" loading="lazy" src="'+it.thumb+'" alt="">':'')+'<span class="pmt"><b class="ltr">'+esc(p.file)+'</b><small>'+(p.unclear?'نام نامشخص؛ موقع پخش می‌پرسم':esc(typeName(p.type)+' · '+p.title+(p.year?' ('+p.year+')':'')+(p.ep?' · '+p.ep:'')))+(it.dur?' · '+fmt(it.dur/1000):'')+'</small></span>'+(it.ok?'<i>✓</i>':it.hit?'<em class="hb">در لیست تو</em>':it.cat?'<em class="hb">'+esc(typeName(it.cat.type))+'</em>':'')+'</button>'; }
   $('plist').innerHTML=h||'<div class="empty">'+(pls.length?'موردی پیدا نشد.':'هنوز ویدیویی نیست.'+(typeof scanNote==='function'&&scanNote()?'<br><small>'+esc(scanNote())+'</small>':''))+'</div>';
   $('pfilter').hidden=pls.length<8;
 }
@@ -672,7 +674,7 @@ function startItem(i){
   const it=pls[i]; if(!it) return;
   if(it.handle&&!it.file){ it.handle.getFile().then(f=>{ it.file=f; it.url=URL.createObjectURL(f); startItem(i); }).catch(()=>toast('نتوانستم این فایل را باز کنم')); return; }
   pi=i; askThumb=it.thumb||''; const pl=$('pl'); if(!it.t0) it.t0=new Date(); $('gn').hidden=true; subReset(); dubOff(); loadSavedSub(it);
-  vd.innerHTML=''; vd.src=it.url; vd.playbackRate=RATES[ri]; pl.hidden=false; $('pt').textContent=it.p.file; showCtl();
+  $('pe').hidden=true; vd.innerHTML=''; vd.src=it.url; vd.playbackRate=RATES[ri]; pl.hidden=false; $('pt').textContent=it.p.file; showCtl();
   vd.play().catch(()=>{});
   updSt(); if(it.seen) return; it.seen=1; const p=it.p; let mem=null;
   try{ mem=JSON.parse(localStorage.getItem('mlname:'+p.file+':'+(it.size||(it.file&&it.file.size)||0))||'null'); }catch(e){}
@@ -693,7 +695,7 @@ function updSt(){ const it=pls[pi]; $('pst').textContent=!it?'':it.ok?'✓ ثب�
 $('pname').onclick=()=>{ const it=pls[pi]; if(!it) return; const was=!vd.paused; vd.pause(); it.seen=1;
   askTitle(it.p,'اسم فیلم یا سریال را بنویس یا از نتیجه‌ها انتخاب کن.',x=>{ if(x) record(it,x); if(was) vd.play().catch(()=>{}); }); grabFrame(it); };
 function closePl(){
-  vd.pause(); setSleep(null); subReset(); dubOff(); $('sh').hidden=true; $('gn').hidden=true; $('pl').hidden=true; vd.removeAttribute('src'); vd.load();
+  vd.pause(); setSleep(null); subReset(); dubOff(); $('sh').hidden=true; $('gn').hidden=true; $('pe').hidden=true; $('pl').hidden=true; vd.removeAttribute('src'); vd.load();
   try{ if(document.fullscreenElement) document.exitFullscreen(); screen.orientation.unlock(); }catch(e){}
   locked=false; $('ulk').hidden=true;
 }
@@ -718,7 +720,11 @@ vd.addEventListener('loadedmetadata',()=>{
   savedAt=0; try{ const t=+localStorage.getItem(posKey(pls[pi])); if(t>15&&t<vd.duration-30){ vd.currentTime=t; hud('ادامه از '+fmt(t),1800); } }catch(e){}
 });
 vd.addEventListener('ended',()=>{ try{ localStorage.removeItem(posKey(pls[pi])); }catch(e){} stamp(true); if(sl&&sl.end){ goodnight('قسمت تمام شد'); return; } pi<pls.length-1?startItem(pi+1):closePl(); });
-vd.addEventListener('error',()=>{ if(vd.getAttribute('src')) { $('buf').hidden=true; hud(vd.error&&vd.error.code===4?'این فرمت یا کدک (مثل HEVC یا برخی MKV) روی این دستگاه پشتیبانی نمی‌شود.':'خطا در پخش این فایل.',6000); } });
+vd.addEventListener('error',()=>{ if(!vd.getAttribute('src')) return; $('buf').hidden=true; const it=pls[pi], e=vd.error, ext=((it&&it.p.file.match(/\.([^.]+)$/))||[])[1]||'';
+  $('pes').textContent='کد خطا '+(e?fa(e.code):'؟')+(ext?' · فرمت '+ext.toUpperCase():'')+' — معمولاً به‌خاطر کدک (مثل HEVC یا صدای AC3/DTS) یا فرمت MKV است.';
+  $('peo').hidden=!(window.AndroidBridge&&AndroidBridge.openExternal&&it&&it.native); $('pe').hidden=false; });
+$('peo').onclick=()=>{ const it=pls[pi]; if(it&&it.url) try{ AndroidBridge.openExternal(it.url.split('/').pop()); }catch(e){} };
+$('pec').onclick=()=>{ $('pe').hidden=true; };
 
 /* ژست‌ها */
 const surf=$('surf'); let g=null;

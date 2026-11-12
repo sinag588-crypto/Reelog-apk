@@ -106,6 +106,15 @@ public class MainActivity extends Activity {
       } catch (Exception e) { stErr = String.valueOf(e); }
       return a.toString();
     }
+    @JavascriptInterface public void openExternal(String id) {
+      runOnUiThread(() -> {
+        try {
+          Uri u = Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, String.valueOf(Long.parseLong(id)));
+          Intent i = new Intent(Intent.ACTION_VIEW).setDataAndType(u, "video/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+          startActivity(Intent.createChooser(i, "Play with"));
+        } catch (Exception e) { }
+      });
+    }
     @JavascriptInterface public String stats() {
       try { JSONObject o = new JSONObject(); o.put("total", stTotal); o.put("skip", stSkip); o.put("err", stErr); return o.toString(); }
       catch (Exception e) { return "{}"; }
@@ -143,7 +152,9 @@ public class MainActivity extends Activity {
 
   static class Limited extends FilterInputStream {
     long left;
-    Limited(InputStream in, long n) { super(in); left = n; }
+    AssetFileDescriptor afd;
+    Limited(InputStream in, long n, AssetFileDescriptor a) { super(in); left = n; afd = a; }
+    @Override public void close() throws IOException { try { super.close(); } finally { try { if (afd != null) afd.close(); } catch (Exception e) { } } }
     @Override public int read() throws IOException { if (left <= 0) return -1; int r = super.read(); if (r >= 0) left--; return r; }
     @Override public int read(byte[] b, int o, int l) throws IOException {
       if (left <= 0) return -1;
@@ -182,8 +193,13 @@ public class MainActivity extends Activity {
       String rg = r.getRequestHeaders().get("Range");
       if (rg != null && rg.startsWith("bytes=")) {
         String[] p = rg.substring(6).split("-", 2);
-        start = Long.parseLong(p[0]);
-        if (p.length > 1 && !p[1].isEmpty()) end = Long.parseLong(p[1]);
+        try {
+          if (p[0].isEmpty() && p.length > 1 && !p[1].isEmpty()) { start = Math.max(0, len - Long.parseLong(p[1])); }
+          else {
+            start = Long.parseLong(p[0].trim());
+            if (p.length > 1 && !p[1].trim().isEmpty()) end = Long.parseLong(p[1].trim());
+          }
+        } catch (NumberFormatException e) { start = 0; end = len - 1; }
       }
       if (end >= len) end = len - 1;
       FileInputStream in = new FileInputStream(fd.getFileDescriptor());
@@ -194,7 +210,7 @@ public class MainActivity extends Activity {
       h.put("Access-Control-Allow-Origin", "*");
       boolean part = rg != null;
       if (part) h.put("Content-Range", "bytes " + start + "-" + end + "/" + len);
-      return new WebResourceResponse(mime, null, part ? 206 : 200, part ? "Partial Content" : "OK", h, new Limited(in, end - start + 1));
+      return new WebResourceResponse(mime, null, part ? 206 : 200, part ? "Partial Content" : "OK", h, new Limited(in, end - start + 1, fd));
     } catch (Exception e) {
       return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", new HashMap<>(), new ByteArrayInputStream(new byte[0]));
     }
