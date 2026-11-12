@@ -82,15 +82,19 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String list() {
       JSONArray a = new JSONArray();
-      if (!granted()) return a.toString();
+      stTotal = 0; stErr = ""; stSkip = new JSONObject();
+      if (!granted()) { stErr = "no-permission"; return a.toString(); }
       boolean q = Build.VERSION.SDK_INT >= 29;
       String[] pr = q
         ? new String[]{MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.SIZE, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.BUCKET_DISPLAY_NAME, MediaStore.Video.Media.RELATIVE_PATH, MediaStore.Video.Media.OWNER_PACKAGE_NAME}
         : new String[]{MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.SIZE, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.BUCKET_DISPLAY_NAME};
-      String sel = MediaStore.Video.Media.DURATION + " >= 300000";
+      String sel = null;
       try (Cursor c = getContentResolver().query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, pr, sel, null, MediaStore.Video.Media.DISPLAY_NAME + " ASC")) {
         while (c != null && c.moveToNext() && a.length() < 5000) {
-          if (skip(c.getString(1), c.getString(4), q ? c.getString(5) : "", q ? c.getString(6) : "")) continue;
+          stTotal++;
+          if (c.getLong(3) < 300000) { bump(stSkip, "short"); continue; }
+          String why = reason(c.getString(1), c.getString(4), q ? c.getString(5) : "", q ? c.getString(6) : "");
+          if (why != null) { bump(stSkip, why); continue; }
           JSONObject o = new JSONObject();
           o.put("name", c.getString(1));
           o.put("url", "https://" + HOST + "/video/" + c.getLong(0));
@@ -99,35 +103,43 @@ public class MainActivity extends Activity {
           o.put("thumb", "https://" + HOST + "/thumb/" + c.getLong(0));
           a.put(o);
         }
-      } catch (Exception e) { }
+      } catch (Exception e) { stErr = String.valueOf(e); }
       return a.toString();
+    }
+    @JavascriptInterface public String stats() {
+      try { JSONObject o = new JSONObject(); o.put("total", stTotal); o.put("skip", stSkip); o.put("err", stErr); return o.toString(); }
+      catch (Exception e) { return "{}"; }
     }
   }
 
-  // فقط فیلم و سریال: دوربین، اسکرین‌رکورد، اسکرین‌شات، دانلودهای تلگرام/کروم، ادیتورها (اینشات و...) و ویدیوهای شبکه‌های اجتماعی حذف می‌شوند
-  static final String[] BAD_PKG = {"telegram", "challegram", "chrome", "android.providers.downloads",
-      "camerasideas", "inshot", "lemon.lv", "capcut", "kinemaster", "videoleap", "lightricks", "filmora", "wondershare",
+  static int stTotal = 0; static String stErr = ""; static JSONObject stSkip = new JSONObject();
+
+  // فقط فیلم و سریال: دوربین، اسکرین‌رکورد، اسکرین‌شات، ادیتورها (اینشات و...) و ویدیوهای شبکه‌های اجتماعی حذف می‌شوند
+  static final String[] BAD_PKG = {"camerasideas", "inshot", "lemon.lv", "capcut", "kinemaster", "videoleap", "lightricks", "filmora", "wondershare",
       "frontrow", "cyberlink", "quvideo", "xiaoying", "alightcreative", "picsart", "videoshow", "magisto", "movavi", "vimosoft", "splice.video"};
   // کلمه‌هایی که در اسم فایل هم حذف می‌شوند
   static final String[] BAD_ANY = {"screenrecord", "screen record", "screen_record", "screen-record", "screenshot",
       "inshot", "capcut", "kinemaster", "videoleap", "filmora", "powerdirector", "youcut", "videoshow", "vllo", "alight motion", "alightmotion"};
   // کلمه‌هایی که فقط در نام پوشه حذف می‌شوند (تا اسم فیلم‌هایی مثل Signal یا Camera اشتباهی حذف نشوند)
-  static final String[] BAD_DIR = {"camera", "telegram", "whatsapp", "instagram", "snapchat", "tiktok", "twitter", "facebook", "signal",
+  static final String[] BAD_DIR = {"camera", "whatsapp", "instagram", "snapchat", "tiktok", "twitter", "facebook", "signal",
       "video editor", "videoeditor", "video_editor", "video maker", "videomaker", "vn editor", "vneditor"};
 
-  static boolean skip(String n, String b, String p, String owner) {
+  // دلیل حذف شدن فایل (یا null اگر باید نمایش داده شود)
+  static String reason(String n, String b, String p, String owner) {
     String nn = n == null ? "" : n.toLowerCase(Locale.ROOT);
     String bb = b == null ? "" : b.toLowerCase(Locale.ROOT);
     String pp = p == null ? "" : p.toLowerCase(Locale.ROOT);
     String ow = owner == null ? "" : owner.toLowerCase(Locale.ROOT);
     String dir = bb + "|" + pp, all = nn + "|" + dir;
-    if (pp.startsWith("dcim/") || nn.startsWith("vid_") || nn.startsWith("pxl_") || nn.startsWith("screen")) return true;
-    if (pp.startsWith("download/") || pp.startsWith("downloads/") || bb.equals("download") || bb.equals("downloads")) return true;
-    for (String t : BAD_ANY) if (all.contains(t)) return true;
-    for (String t : BAD_DIR) if (dir.contains(t)) return true;
-    for (String t : BAD_PKG) if (ow.contains(t)) return true;
-    return false;
+    for (String t : BAD_PKG) if (ow.contains(t)) return "edit";
+    if (all.contains("screenrecord") || all.contains("screen record") || all.contains("screen_record") || all.contains("screen-record") || all.contains("screenshot") || nn.startsWith("screen")) return "scr";
+    for (String t : BAD_ANY) if (all.contains(t)) return "edit";
+    if (pp.startsWith("dcim/") || nn.startsWith("vid_") || nn.startsWith("pxl_") || dir.contains("camera")) return "cam";
+    for (String t : BAD_DIR) if (dir.contains(t)) return "soc";
+    return null;
   }
+
+  static void bump(JSONObject o, String k) { try { o.put(k, o.optInt(k, 0) + 1); } catch (Exception e) { } }
 
   static class Limited extends FilterInputStream {
     long left;

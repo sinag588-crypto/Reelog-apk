@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head><script>if(window.AndroidBridge){window.ReelogNative={hasVideoAccess:function(){return AndroidBridge.hasAccess();},requestVideoAccess:function(){return new Promise(function(r){window.__vcb=r;AndroidBridge.request();});},openSettings:function(){AndroidBridge.openSettings();},listVideos:function(){try{return Promise.resolve(JSON.parse(AndroidBridge.list()));}catch(e){return Promise.resolve([]);}}};}</script>
+<head><script>if(window.AndroidBridge){window.ReelogNative={hasVideoAccess:function(){return AndroidBridge.hasAccess();},requestVideoAccess:function(){return new Promise(function(r){window.__vcb=r;AndroidBridge.request();});},openSettings:function(){AndroidBridge.openSettings();},stats:function(){try{return JSON.parse(AndroidBridge.stats());}catch(e){return null;}},listVideos:function(){try{return Promise.resolve(JSON.parse(AndroidBridge.list()));}catch(e){return Promise.resolve([]);}}};}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reelog</title>
@@ -314,6 +314,7 @@ h1{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spaci
     <button class="ghost big" id="vbtn" data-i18n="vbtn">＋ دسترسی به همه‌ی ویدیوها</button>
     <input type="file" id="vf" accept="video/*,.mkv,.avi" multiple hidden>
     <input id="pfilter" placeholder="جست‌وجو در ویدیوها…" autocomplete="off" hidden style="margin-top:12px">
+    <div class="hint" id="catSt" hidden></div>
     <div id="plist" class="plist"></div>
   </section>
 
@@ -646,7 +647,7 @@ function renderPl(){
   const q=norm($('pfilter').value||''); let n=0, h='';
   for(let i=0;i<pls.length&&n<300;i++){ const it=pls[i], p=it.p; if(q&&!norm(p.file).includes(q)) continue; n++;
     h+='<button class="pi'+(it.hit?' hit':'')+'" data-i="'+i+'"><span class="pn">'+IC.play+'</span>'+(it.thumb?'<img class="pth" loading="lazy" src="'+it.thumb+'" alt="">':'')+'<span class="pmt"><b class="ltr">'+esc(p.file)+'</b><small>'+(p.unclear?'نام نامشخص؛ موقع پخش می‌پرسم':esc(typeName(p.type)+' · '+p.title+(p.year?' ('+p.year+')':'')+(p.ep?' · '+p.ep:'')))+(it.dur?' · '+fmt(it.dur/1000):'')+'</small></span>'+(it.ok?'<i>✓</i>':it.hit?'<em class="hb">در لیست تو</em>':it.cat?'<em class="hb">'+esc(typeName(it.cat.type))+'</em>':'')+'</button>'; }
-  $('plist').innerHTML=h||'<div class="empty">'+(pls.length?'موردی پیدا نشد.':'هنوز ویدیویی نیست.')+'</div>';
+  $('plist').innerHTML=h||'<div class="empty">'+(pls.length?'موردی پیدا نشد.':'هنوز ویدیویی نیست.'+(typeof scanNote==='function'&&scanNote()?'<br><small>'+esc(scanNote())+'</small>':''))+'</div>';
   $('pfilter').hidden=pls.length<8;
 }
 const addFiles=fs=>{ [...fs].forEach(f=>{ if(!pls.some(x=>x.p.file===f.name&&(!x.file||x.file.size===f.size))) pls.push({file:f,url:URL.createObjectURL(f),p:parseName(f.name)}); }); renderPl(); catRun(); };
@@ -1027,6 +1028,8 @@ async function catRun(){
   try{
     const groups=new Map();
     pls.forEach(it=>{ if(it.hit||it.cat||it.p.unclear) return; const k=catKey(it.p); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(it); });
+    let doneN=0, foundN=0; const upd=fin=>{ const el=$('catSt'); if(!el) return; const tot=Math.min(groups.size,400); el.hidden=!tot; el.textContent=fin?'✓ تطبیق با آرشیو تمام شد: '+fa(foundN)+' مورد از '+fa(tot)+' نام پیدا شد':'در حال تطبیق نام‌ها با آرشیو… '+fa(doneN)+' از '+fa(tot)+' · '+fa(foundN)+' مورد پیدا شد'; };
+    upd(false);
     const q=[...groups].sort((x,y)=>(y[1][0].p.type==='series')-(x[1][0].p.type==='series')||y[1].length-x[1].length).slice(0,400);
     const work=async()=>{
       while(q.length){
@@ -1038,17 +1041,16 @@ async function catRun(){
           c=r.hit||0; try{ localStorage.setItem(CATK+k,JSON.stringify(c)); }catch(e){}
           await new Promise(f=>setTimeout(f,600));
         }
-        catMem.set(k,c);
-        if(c){ items.forEach(it=>{ it.cat=c; }); catPaint(); }
+        catMem.set(k,c); doneN++; if(c){ foundN++; items.forEach(it=>{ it.cat=c; }); catPaint(); } upd(false);
       }
     };
-    await Promise.all([work(),work()]);
+    await Promise.all([work(),work()]); upd(true);
     if($('pl').hidden){ sortPls(); renderPl(); }
   }catch(e){}
   catBusy=false; if(catAgain){ catAgain=false; catRun(); }
 }
 function rematch(){ if(!pls.some(x=>x.handle)||!$('pl').hidden) return; pls.forEach(x=>{ if(x.handle) x.hit=matchLog(x.p); }); sortPls(); pi=-1; renderPl(); dirUi(); }
-const SKIPDIR=/^(dcim|camera|screenshots?|screen ?recordings?|screenrecorder|telegram|download|downloads|whatsapp|instagram|snapchat|tiktok|inshot|capcut|kinemaster|videoleap|filmora|youcut|videoshow)$/i;
+const SKIPDIR=/^(dcim|camera|screenshots?|screen ?recordings?|screenrecorder|whatsapp|instagram|snapchat|tiktok|inshot|capcut|kinemaster|videoleap|filmora|youcut|videoshow)$/i;
 async function walk(dir,depth,out){
   for await(const [name,h] of dir.entries()){
     if(name[0]==='.') continue;
@@ -1085,10 +1087,18 @@ function applyLang(){
 /* ===== دسترسی به همه‌ی ویدیوها در اپ (پل نیتیو) ===== */
 const NAT=window.ReelogNative||null;
 let vidOk=false;
+let scanSt=null;
+const WHY={short:'کوتاه‌تر از ۵ دقیقه',cam:'دوربین',scr:'اسکرین‌رکورد/اسکرین‌شات',dl:'دانلود (تلگرام، کروم، پوشه‌ی Download)',edit:'ادیتور ویدیو',soc:'شبکه‌های اجتماعی'};
+function scanNote(){
+  const st=scanSt; if(!st) return ''; if(st.err) return 'خطا در خواندن ویدیوها: '+st.err;
+  const parts=Object.keys(st.skip||{}).map(k=>(WHY[k]||k)+': '+fa(st.skip[k]));
+  return fa(st.total||0)+' ویدیو در حافظه هست'+(parts.length?' · کنار گذاشته‌شده — '+parts.join('، '):'');
+}
 async function nativeScan(){
   if(!NAT||!NAT.listVideos) return false;
   try{
     const L=await NAT.listVideos(); if(!Array.isArray(L)) return false;
+    try{ scanSt=NAT.stats?NAT.stats():null; }catch(e){ scanSt=null; }
     pls=L.filter(v=>!(v.dur>0&&v.dur<300000)&&!EDIT.test(v.name||'')).map(v=>{ const p=parseName(v.name); return {handle:null,p,url:v.url,file:null,size:v.size,thumb:v.thumb,dur:v.dur,native:1,hit:matchLog(p)}; });
     sortPls(); pi=-1; renderPl(); catRun(); return true;
   }catch(e){ return false; }
