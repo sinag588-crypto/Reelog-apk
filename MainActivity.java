@@ -104,20 +104,27 @@ public class MainActivity extends Activity {
     }
   }
 
-  // فقط فیلم و سریال: دوربین، اسکرین‌رکورد، اسکرین‌شات، دانلودهای تلگرام/کروم و ویدیوهای شبکه‌های اجتماعی حذف می‌شوند
-  static final String[] BAD_PKG = {"telegram", "challegram", "chrome", "android.providers.downloads"};
-  static final String[] BAD_TXT = {"camera", "screenrecord", "screen record", "screen_record", "screen-record", "screenshot",
-      "telegram", "whatsapp", "instagram", "snapchat", "tiktok", "twitter", "facebook", "signal"};
+  // فقط فیلم و سریال: دوربین، اسکرین‌رکورد، اسکرین‌شات، دانلودهای تلگرام/کروم، ادیتورها (اینشات و...) و ویدیوهای شبکه‌های اجتماعی حذف می‌شوند
+  static final String[] BAD_PKG = {"telegram", "challegram", "chrome", "android.providers.downloads",
+      "camerasideas", "inshot", "lemon.lv", "capcut", "kinemaster", "videoleap", "lightricks", "filmora", "wondershare",
+      "frontrow", "cyberlink", "quvideo", "xiaoying", "alightcreative", "picsart", "videoshow", "magisto", "movavi", "vimosoft", "splice.video"};
+  // کلمه‌هایی که در اسم فایل هم حذف می‌شوند
+  static final String[] BAD_ANY = {"screenrecord", "screen record", "screen_record", "screen-record", "screenshot",
+      "inshot", "capcut", "kinemaster", "videoleap", "filmora", "powerdirector", "youcut", "videoshow", "vllo", "alight motion", "alightmotion"};
+  // کلمه‌هایی که فقط در نام پوشه حذف می‌شوند (تا اسم فیلم‌هایی مثل Signal یا Camera اشتباهی حذف نشوند)
+  static final String[] BAD_DIR = {"camera", "telegram", "whatsapp", "instagram", "snapchat", "tiktok", "twitter", "facebook", "signal",
+      "video editor", "videoeditor", "video_editor", "video maker", "videomaker", "vn editor", "vneditor"};
 
   static boolean skip(String n, String b, String p, String owner) {
     String nn = n == null ? "" : n.toLowerCase(Locale.ROOT);
     String bb = b == null ? "" : b.toLowerCase(Locale.ROOT);
     String pp = p == null ? "" : p.toLowerCase(Locale.ROOT);
     String ow = owner == null ? "" : owner.toLowerCase(Locale.ROOT);
-    String s = nn + "|" + bb + "|" + pp;
+    String dir = bb + "|" + pp, all = nn + "|" + dir;
     if (pp.startsWith("dcim/") || nn.startsWith("vid_") || nn.startsWith("pxl_") || nn.startsWith("screen")) return true;
     if (pp.startsWith("download/") || pp.startsWith("downloads/") || bb.equals("download") || bb.equals("downloads")) return true;
-    for (String t : BAD_TXT) if (s.contains(t)) return true;
+    for (String t : BAD_ANY) if (all.contains(t)) return true;
+    for (String t : BAD_DIR) if (dir.contains(t)) return true;
     for (String t : BAD_PKG) if (ow.contains(t)) return true;
     return false;
   }
